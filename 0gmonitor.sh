@@ -47,7 +47,7 @@ function display_banner() {
     echo -e "${YELLOW}Github: ${GREEN}https://github.com/ezlabs-nodes${NC}"
     echo -e "${YELLOW}Telegram: ${GREEN}https://t.me/EzLabsNodes${NC}"
     echo -e "${YELLOW}Twitter: ${GREEN}@EzlabsNodes${NC}"
-	echo -e "${YELLOW}Medium: ${GREEN}https://medium.com/@ezlabsnodes/{NC}"
+    echo -e "${YELLOW}Medium: ${GREEN}https://medium.com/@ezlabsnodes/${NC}"
     echo "======================================================="
 }
 
@@ -56,24 +56,24 @@ function display_banner() {
 # ==========================================
 display_banner
 
-# --- Konfigurasi ---
+# --- Configuration ---
 STORAGE_RPC_PORT="5678"
 STORAGE_RPC="http://localhost:$STORAGE_RPC_PORT"
 PARENT_RPC="https://0g-evm.maouam.nodelab.my.id/"
-CHECK_INTERVAL=300
-THRESHOLD=300
-WALLET_ADDRESS="YOUR-ADDRESS 0x"  # Ganti dengan wallet kamu
+CHECK_INTERVAL=300  # 5 minutes
+THRESHOLD=300       # 300 blocks
+WALLET_ADDRESS="YOUR-ADDRESS 0x"  # Replace with your wallet address
 
-# --- Opsional: Token & Chat ID Telegram (export dari env atau hardcode di sini)
-BOT_TOKEN="${BOT_TOKEN:-}"     # export BOT_TOKEN="..." jika ingin aktif
-CHAT_ID="${CHAT_ID:-}"         # export CHAT_ID="..." jika ingin aktif
+# --- Optional: Telegram Token & Chat ID (export from env or hardcode here) ---
+BOT_TOKEN="${BOT_TOKEN:-}"     # export BOT_TOKEN="..." to enable
+CHAT_ID="${CHAT_ID:-}"         # export CHAT_ID="..." to enable
 
 # --- Escape MarkdownV2 ---
 escape_markdown_v2() {
     echo "$1" | sed -E 's/([][(){}.!*#+-=|~`>_<])|\\/\\\1/g'
 }
 
-# --- Kirim pesan ke Telegram ---
+# --- Send Telegram message ---
 send_telegram_log() {
     local status_raw="$1"
     local status=$(escape_markdown_v2 "$status_raw")
@@ -84,29 +84,29 @@ send_telegram_log() {
 
 📦 *Storage:* \`$STORAGE_HEIGHT\`
 🌐 *Parent:* \`$PARENT_HEIGHT\`
-🔁 *Selisih:* \`$DIFF\`
+🔁 *Difference:* \`$DIFF\`
 💰 *OG Balance:* \`$A0GI_BALANCE OG\`
 $status
 EOF
 )
     if [[ -n "$BOT_TOKEN" && -n "$CHAT_ID" ]]; then
-        echo -e "${YELLOW}[DEBUG] Mengirim pesan ke Telegram...${NC}"
+        echo -e "${YELLOW}[DEBUG] Sending Telegram message...${NC}"
         curl -s -X POST "https://api.telegram.org/bot$BOT_TOKEN/sendMessage" \
             -d chat_id="$CHAT_ID" \
             --data-urlencode "text=$msg" \
             -d parse_mode="MarkdownV2" \
             -w "\n[HTTP STATUS: %{http_code}]\n"
     else
-        echo -e "${YELLOW}[INFO] BOT_TOKEN atau CHAT_ID belum diatur. Lewatkan kirim pesan.${NC}"
+        echo -e "${YELLOW}[INFO] BOT_TOKEN or CHAT_ID not set. Skipping Telegram message.${NC}"
     fi
 }
 
-# --- Fungsi hex ke desimal ---
+# --- Hex to decimal conversion ---
 hex_to_dec() {
     printf "%d" "$((16#${1#0x}))"
 }
 
-# --- Fungsi ambil saldo OG dari RPC ---
+# --- Get OG balance from RPC ---
 get_a0gi_balance() {
     local BAL_HEX=$(curl -s -X POST "$PARENT_RPC" \
         -H "Content-Type: application/json" \
@@ -120,10 +120,10 @@ get_a0gi_balance() {
     fi
 }
 
-# --- Loop monitoring ---
+# --- Monitoring loop ---
 while true; do
     TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')
-    echo -e "[$TIMESTAMP] ${CYAN}⏳ Mengecek block height...${NC}"
+    echo -e "[$TIMESTAMP] ${CYAN}⏳ Checking block height...${NC}"
 
     STORAGE_HEIGHT=$(curl -s -X POST "$STORAGE_RPC" \
         -H "Content-Type: application/json" \
@@ -136,20 +136,20 @@ while true; do
     PARENT_HEIGHT=$(hex_to_dec "$PARENT_HEX")
 
     if [[ ! $STORAGE_HEIGHT =~ ^[0-9]+$ ]] || [[ ! $PARENT_HEIGHT =~ ^[0-9]+$ ]]; then
-        echo -e "[$TIMESTAMP] ${RED}❌ Gagal mendapatkan block height!${NC} | Storage: $STORAGE_HEIGHT | Parent(hex): $PARENT_HEX"
+        echo -e "[$TIMESTAMP] ${RED}❌ Failed to get block height!${NC} | Storage: $STORAGE_HEIGHT | Parent(hex): $PARENT_HEX"
         sleep $CHECK_INTERVAL
         continue
     fi
 
     DIFF=$((PARENT_HEIGHT - STORAGE_HEIGHT))
-    echo -e "[$TIMESTAMP] ${CYAN}📦 Storage:${NC} $STORAGE_HEIGHT | ${CYAN}🌐 Parent:${NC} $PARENT_HEIGHT | ${YELLOW}🔁 Selisih:${NC} $DIFF"
+    echo -e "[$TIMESTAMP] ${CYAN}📦 Storage:${NC} $STORAGE_HEIGHT | ${CYAN}🌐 Parent:${NC} $PARENT_HEIGHT | ${YELLOW}🔁 Difference:${NC} $DIFF"
 
     A0GI_BAL=$(get_a0gi_balance)
-    echo -e "[$TIMESTAMP] ${CYAN}💰 Saldo A0GI:${NC} $A0GI_BAL A0GI"
+    echo -e "[$TIMESTAMP] ${CYAN}💰 OG Balance:${NC} $A0GI_BAL OG"
 
     if (( DIFF > THRESHOLD )); then
-        echo -e "[$TIMESTAMP] ${RED}⚠️ STORAGE_NODE TERTINGGAL! Restarting zgs...${NC}"
-        send_telegram_log "⚠️ Status: STORAGE_NODE TERTINGGAL — Restarting zgs..."
+        echo -e "[$TIMESTAMP] ${RED}⚠️ STORAGE_NODE FALLING BEHIND! Restarting zgs...${NC}"
+        send_telegram_log "⚠️ Status: STORAGE_NODE FALLING BEHIND — Restarting zgs..."
         systemctl restart zgs
     else
         echo -e "[$TIMESTAMP] ${GREEN}✅ STORAGE_NODE OK${NC}"
