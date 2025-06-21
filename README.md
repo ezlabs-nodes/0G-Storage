@@ -3,7 +3,7 @@
 
 #### Step 1 Download Repository
 ````
-git clone https://github.com/ezlabs-nodes/0G-Storage.git
+git clone https://github.com/ezlabs-nodes/0gmonitor.git
 ````
 #### Step 2 Go to Directory & Create a screen
 ````
